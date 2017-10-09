@@ -4,3 +4,5 @@ build/
 *.pyo
 __pycache__/
 MANIFEST
+
+.idea/
