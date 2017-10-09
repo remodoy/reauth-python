@@ -2,6 +2,7 @@ import json
 import ssl
 import time
 import urllib.request
+from datetime import timedelta
 
 import Crypto.PublicKey.RSA
 import python_jwt as jwt
@@ -10,6 +11,7 @@ _accepted_sign_algs = ["PS512"]
 _pubkey_cache_living_time = 60*10  # 10min
 _pubkey_cache_exp_time = 0
 _pubkey_cache = ""
+_iat_skew = timedelta(minutes=5)
 
 
 def get_public_key(reauth_url, verify=True):
@@ -60,7 +62,7 @@ def decode_reauth_token(token, public_key):
     :return: Dictionary containing Claims from token
     """
     public_key = Crypto.PublicKey.RSA.importKey(public_key)
-    header, claims = jwt.verify_jwt(token, public_key, _accepted_sign_algs)
+    header, claims = jwt.verify_jwt(token, pub_key=public_key, allowed_algs=_accepted_sign_algs, iat_skew=_iat_skew)
 
     return claims
 
