@@ -3,6 +3,7 @@ import ssl
 import time
 import urllib.request
 from datetime import timedelta
+import logging
 
 import Crypto.PublicKey.RSA
 import python_jwt as jwt
@@ -14,6 +15,9 @@ _pubkey_cache = ""
 _iat_skew = timedelta(minutes=5)
 
 
+logger = logging.getLogger("reauth")
+
+
 def get_public_key(reauth_url, verify=True):
     """
     Get ReAuth server public key from server.
@@ -22,6 +26,7 @@ def get_public_key(reauth_url, verify=True):
     :param verify: Verify TLS, default value is True
     :return: Public key in text format
     """
+    logger.debug("get_public_key(%s, verify=%s" % (reauth_url, verify))
     global _pubkey_cache_exp_time, _pubkey_cache, _pubkey_cache_living_time
 
     if time.time() < _pubkey_cache_exp_time:
@@ -30,7 +35,7 @@ def get_public_key(reauth_url, verify=True):
         ctx = ssl.create_default_context()
         ctx.check_hostname = verify
 
-        with urllib.request.urlopen(reauth_url + "/key.pub", context=ctx) as f:
+        with urllib.request.urlopen(reauth_url + "/key.pub", timeout=15, context=ctx) as f:
             public_key = f.read()
             _pubkey_cache = public_key
             _pubkey_cache_exp_time = time.time() + _pubkey_cache_living_time
@@ -45,9 +50,10 @@ def fetch_reauth_token(code, reauth_url, verify=True):
     :param verify: Verify TLS, default value is True
     :return: Token in text format
     """
+    logger.debug("fetch_reauth_token(%s, %s, verify=%s" % (code, reauth_url, verify))
     ctx = ssl.create_default_context()
     ctx.check_hostname = verify
-    with urllib.request.urlopen(reauth_url.rstrip("/") + "/api/v1/token/" + code + "/", context=ctx) as f:
+    with urllib.request.urlopen(reauth_url.rstrip("/") + "/api/v1/token/" + code + "/", timeout=15, context=ctx) as f:
         data = json.loads(f.read().decode("utf-8"))
         if 'jwtToken' in data:
             return data['jwtToken']
@@ -61,6 +67,7 @@ def decode_reauth_token(token, public_key):
     :param public_key: Server public key.
     :return: Dictionary containing Claims from token
     """
+    logger.debug("decode_reauth_token(%s, %s)" % (token, public_key))
     public_key = Crypto.PublicKey.RSA.importKey(public_key)
     header, claims = jwt.verify_jwt(token, pub_key=public_key, allowed_algs=_accepted_sign_algs, iat_skew=_iat_skew)
 
